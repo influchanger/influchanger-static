@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
+<title>Maintenance — Influchanger</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&amp;family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&amp;family=JetBrains+Mono:wght@500;700&amp;display=swap" rel="stylesheet">
+<!-- Story 221: the maintenance page (Heroku maintenance mode and cutovers). Self-contained (inline styles and script,
+     brand colours filled in from web/src/styles/tokens by web/src/prerender.tsx at build time, safe font stacks), so that it can be served from any address while the
+     app is off. The hive plays a Game of Life (hexagonal, B2/S34) around a fixed orange cell: the heading. -->
+<style>
+:root{--bg:#F5F1E8;--surf:#FBF8F2;--ink:#1D2B8F;--muted:#4A5590;--line:#D8D1C2;--acc:#F0592A;--on:#141B4D}
+@media (prefers-color-scheme:dark){:root{--bg:#141B4D;--surf:#1C2560;--ink:#F3EEE4;--muted:#B9BEDB;--line:#2E3A7A;--acc:#FF7A4D;--on:#141B4D}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Literata',Georgia,'Times New Roman',serif}
+main{max-width:1080px;margin:0 auto;padding:72px 24px 56px}
+.k{margin:0;font-family:'JetBrains Mono','Courier New',monospace;font-size:14px;letter-spacing:.18em;text-transform:uppercase;color:var(--acc)}
+h1{margin:12px 0 22px;font-family:'Bricolage Grotesque',Arial,Helvetica,sans-serif;font-weight:800;font-size:clamp(44px,9vw,96px);line-height:1;letter-spacing:-.02em}
+.sub{margin:22px 0 0;max-width:620px;font-size:20px;line-height:1.55;color:var(--muted)}
+.ctas{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
+.btn{display:inline-flex;align-items:center;min-height:50px;padding:0 24px;border-radius:6px;font-family:'Bricolage Grotesque',Arial,Helvetica,sans-serif;font-weight:700;font-size:17px;text-decoration:none;background:var(--acc);color:var(--on);border:2px solid var(--acc);cursor:pointer}
+.btn.s{background:transparent;color:var(--ink);border:1px solid var(--line)}
+svg{display:block;width:100%;height:auto}
+.cell{fill:none;stroke:var(--line);stroke-width:2;transition:fill-opacity .5s,stroke .5s}
+.cell.on{fill:var(--acc);fill-opacity:.18;stroke:var(--acc)}
+.cap{fill:var(--acc);stroke:var(--acc);stroke-width:2}
+[lang=fr] [lang=en],[lang=en] [lang=fr]{display:none}
+</style>
+</head>
+<body>
+<main>
+  <p class="k"><span lang="fr">Le cap ne change pas</span><span lang="en">The heading stays the same</span></p>
+  <h1>Maintenance</h1>
+  <svg id="hive" role="img" aria-label="Une ruche dont les alvéoles changent, autour d’une alvéole orange qui reste" data-en-aria-label="A hive whose cells change, around an orange cell that stays"></svg>
+  <p class="sub"><span lang="fr">Ici, on préfère le changement émergent au changement imposé… sauf pour cette mise à jour, qu’on a dû faire tout seuls. Le site revient dans un instant.</span><span lang="en">Here, we prefer emergent change to imposed change… except for this update, which we had to do on our own. The site will be back in a moment.</span></p>
+  <p class="ctas">
+    <a class="btn" href="/" onclick="location.reload();return false"><span lang="fr">Réessayer</span><span lang="en">Try again</span></a>
+    <a class="btn s" href="https://influchanger.com/"><span lang="fr">Revenir à l’accueil</span><span lang="en">Back to the home page</span></a>
+  </p>
+</main>
+<script>
+(function () {
+  var D = document.documentElement, en = /^en\b/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '');
+  if (en) D.lang = 'en';
+  var svg = document.getElementById('hive');
+  if (en) svg.setAttribute('aria-label', svg.getAttribute('data-en-aria-label'));
+  var COLS = 21, ROWS = 6, R = 16, W = Math.sqrt(3) * R, CAP = [3, 17], NS = 'http://www.w3.org/2000/svg';
+  svg.setAttribute('viewBox', '0 0 ' + ((COLS + 0.5) * W + 8).toFixed(0) + ' ' + (R * (1.5 * (ROWS - 1) + 2) + 8).toFixed(0));
+  function pts(cx, cy, r) { var s = []; for (var i = 0; i < 6; i++) { var a = Math.PI / 180 * (60 * i - 30); s.push((cx + r * Math.cos(a)).toFixed(1) + ',' + (cy + r * Math.sin(a)).toFixed(1)); } return s.join(' '); }
+  var cells = [], alive = [], isCap = function (r, c) { return r === CAP[0] && c === CAP[1]; };
+  for (var r = 0; r < ROWS; r++) { cells.push([]); alive.push([]); for (var c = 0; c < COLS; c++) {
+    var p = document.createElementNS(NS, 'polygon'), cx = W / 2 + 4 + c * W + (r % 2 ? W / 2 : 0), cy = R + 4 + r * R * 1.5;
+    p.setAttribute('points', pts(cx, cy, isCap(r, c) ? R : R - 2.5)); p.setAttribute('class', isCap(r, c) ? 'cap' : 'cell');
+    svg.appendChild(p); cells[r].push(p); alive[r].push(false);
+  } }
+  // Neighbours of a cell in rows shifted every other line (odd rows to the right), on a torus.
+  function around(r, c) {
+    var d = r % 2 ? [[0, -1], [0, 1], [-1, 0], [-1, 1], [1, 0], [1, 1]] : [[0, -1], [0, 1], [-1, -1], [-1, 0], [1, -1], [1, 0]];
+    return d.map(function (x) { return [(r + x[0] + ROWS) % ROWS, (c + x[1] + COLS) % COLS]; });
+  }
+  function seed() { for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) alive[r][c] = !isCap(r, c) && Math.random() < 0.34; }
+  function draw() { for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) if (!isCap(r, c)) cells[r][c].setAttribute('class', alive[r][c] ? 'cell on' : 'cell'); }
+  var seen = [], gen = 0;
+  // Hexagonal Game of Life B2/S34: a cell is born with 2 living neighbours, survives with 3 or 4. The heading always lives.
+  function step() {
+    var next = alive.map(function (row, r) { return row.map(function (on, c) {
+      if (isCap(r, c)) return false;
+      var n = around(r, c).filter(function (q) { return isCap(q[0], q[1]) || alive[q[0]][q[1]]; }).length;
+      return on ? (n === 3 || n === 4) : n === 2;
+    }); });
+    alive = next; gen++;
+    var key = alive.map(function (row) { return row.map(Number).join(''); }).join('');
+    var count = (key.match(/1/g) || []).length;
+    if (count < 5 || seen.indexOf(key) >= 0 || gen > 80) { seed(); seen = []; gen = 0; } else { seen.push(key); if (seen.length > 6) seen.shift(); }
+    draw();
+  }
+  seed(); draw();
+  if (!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) setInterval(step, 900);
+})();
+</script>
+</body>
+</html>
